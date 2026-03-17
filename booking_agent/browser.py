@@ -4,14 +4,22 @@ import asyncio
 import fcntl
 import json
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import AsyncIterator
 
 from playwright.async_api import BrowserContext, Page, async_playwright
+from rich.console import Console
 
 from booking_agent.config import SESSION_FILE, STATE_DIR, Settings
 
+console = Console()
 LOCK_FILE = STATE_DIR / ".lock"
+
+
+def _log(msg: str) -> None:
+    ts = datetime.now().strftime("%H:%M:%S")
+    console.print(f"[dim][{ts}][/dim] {msg}")
 
 
 @asynccontextmanager
@@ -71,17 +79,27 @@ async def _create_context(
 
 
 async def is_session_valid(page: Page, settings: Settings) -> bool:
-    """Navigate to the extranet and check whether we land there (not redirected to login)."""
+    """Navigate to the extranet and check whether we're still authenticated."""
+    _log("Checking saved session...")
     try:
         await page.goto(settings.extranet_base, wait_until="domcontentloaded", timeout=60_000)
-        # Allow time for OAuth redirect chain to settle
-        for _ in range(6):
+        for i in range(6):
             await asyncio.sleep(3)
             url = page.url
+            _log(f"[dim]Session check ({i+1}/6): {url[:80]}[/dim]")
             if "admin.booking.com" in url:
+                _log("[green]Session valid (extranet)[/green]")
                 return True
+            if "account.booking.com/sign-in" in url:
+                _log("[yellow]Session expired (redirected to sign-in)[/yellow]")
+                return False
+            if "booking.com" in url:
+                _log("[green]Session valid (booking.com)[/green]")
+                return True
+        _log("[yellow]Session check timed out[/yellow]")
         return False
     except Exception:
+        _log("[red]Session check failed[/red]")
         return False
 
 
@@ -122,10 +140,13 @@ async def get_authenticated_page(settings: Settings) -> AsyncIterator[Page]:
             page = await context.new_page()
 
             try:
-                if _has_saved_session() and await is_session_valid(page, settings):
+                has_session = _has_saved_session()
+                if has_session:
+                    _log("Restoring saved session...")
+                if has_session and await is_session_valid(page, settings):
                     yield page
                 else:
-                    # Session absent or expired — need to log in.
+                    _log("Session invalid — starting fresh login...")
                     # If headless, relaunch headed for potential 2FA/CAPTCHA.
                     if settings.headless:
                         await context.close()

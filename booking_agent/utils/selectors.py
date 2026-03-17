@@ -2,7 +2,11 @@
 LOGIN_EMAIL_INPUT = 'input[name="loginname"], input[name="username"], input[type="email"]'
 LOGIN_NEXT_BUTTON = 'button[type="submit"], button:has-text("Next"), button:has-text("Continue")'
 LOGIN_PASSWORD_INPUT = 'input[name="password"], input[type="password"]'
-LOGIN_SUBMIT_BUTTON = 'button[type="submit"], button:has-text("Sign in"), button:has-text("Log in")'
+LOGIN_SUBMIT_BUTTON = 'button[type="submit"], button:has-text("Sign in"), button:has-text("Log in"), button:has-text("Submit"), [data-testid="login-button"]'
+
+# OTP input
+OTP_INPUT = 'input[name="otp"], input[name="code"]'
+OTP_SUBMIT_BUTTON = 'button[type="submit"], button:has-text("Verify"), button:has-text("Continue")'
 
 # 2FA / CAPTCHA detection
 TWO_FA_INDICATOR = 'input[name="otp"], input[name="code"], [data-testid="two-factor"]'

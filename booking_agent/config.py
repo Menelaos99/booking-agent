@@ -5,6 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_DIR = PROJECT_ROOT / "state"
 SESSION_FILE = STATE_DIR / "session.json"
+GMAIL_CREDENTIALS_FILE = STATE_DIR / "credentials.json"
+GMAIL_TOKEN_FILE = STATE_DIR / "token.json"
 
 
 class Settings(BaseSettings):
@@ -18,6 +20,7 @@ class Settings(BaseSettings):
     booking_hotel_id: str = "7455203"
     headless: bool = True
     slow_mo: int = 0
+    gmail_otp_enabled: bool = False
 
     @property
     def extranet_base(self) -> str:
