@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "booking-agent"
+version = "0.1.0"
+description = "CLI agent for Booking.com extranet automation"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright>=1.50",
+    "typer>=0.15",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "python-dotenv>=1.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+booking = "booking_agent.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["booking_agent"]

@@ -1,0 +1,174 @@
+{
+  "cookies": [
+    {
+      "name": "bkng_sso_session",
+      "value": "e30",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1807868918.343258,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "bkng_sso_ses",
+      "value": "e30",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1807868918.343099,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "pcm_consent",
+      "value": "analytical%3Dfalse%26countryCode%3DDE%26consentId%3D714213f0-cb80-4ead-8b40-84685599dfe5%26consentedAt%3D2026-03-12T09%3A48%3A31.491Z%26expiresAt%3D2026-09-08T09%3A48%3A31.491Z%26implicit%3Dtrue%26marketing%3Dfalse%26regionCode%3DBW%26regulation%3Dgdpr%26legacyRegulation%3Dgdpr",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1804844911.536445,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "bkng_sso_auth",
+      "value": "CAIQi4nT0gIaZgmxOmSgZrvZtG6G4uzvliriJ4VypXBXuNuDjT/WkweT+1vUqLm9B9lassMlY+ZbZWcZjDiIkOGeVxrH3mRQWKnB0kvDKTu3UZR529h+BqjsLfEinSfn/TkwKUXfGgvkWj8hg6Ht/g==",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1807868911.536526,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "bkng_ap",
+      "value": "U2FsdGVkX18Z6vhcOVwuo85dt%2FKDKrf0VQFg%2BvlB4kIlvu2%2BX%2BDpwoVmGGv1oYWyrwZU0JvJ4P9D%0AxncDzSh%2FIw%3D%3D%0A",
+      "domain": ".account.booking.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.2.594006157.1773308913",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1807868912.911445,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_gid",
+      "value": "GA1.2.2004837341.1773308913",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1773395312,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "thx_guid",
+      "value": "49a0703d651cb8bf244268f9f049f282",
+      "domain": "asanalytics.booking.com",
+      "path": "/",
+      "expires": 1807868913.732813,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "tmx_guid",
+      "value": "AAzA5DU-ll1oRsqehnvMQi5f3TvQiVn7BmVdi64FK3fEFt1h72KqGZaBArKDiyDffCo8eDhrx_4UDxJ-zbPmv2Yy6uRmYg",
+      "domain": "asanalytics.booking.com",
+      "path": "/",
+      "expires": 1807868913.732904,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "thx_global_guid",
+      "value": "b2d09d393b3c4631bed1357fca37a756",
+      "domain": "h.online-metrix.net",
+      "path": "/",
+      "expires": 1807868915.67191,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "aws-waf-token",
+      "value": "a949254a-1f6d-4704-8ae8-07ec5fa07f9b:CQoAj1ZDZVuCAAAA:Oetg3g6nWacJpmiP6gNYOqMePezMHkjrEVPermbxZpCvdiiwz0YZeG5sBtInw304iFk8m7nZ5bTWuSIzFGv7+0E6YkRbJ02VLBw7GxvTQAlZ1Gcz/HXvR0y2QAChOk76XW7GucvPES8KoDYEe5C2W3x8IZ3NgIwwy4x6lXoKFqFHdRsHxhjSjaceDkj4tiMmjV+REvqMKWKa2rOjoeyk0eW6WxEzs5RVVBlzG6H6lnMy2WlNgGliovV5ZVu99Px1Ki3NwFc=",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1773654517,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "bkng_ap_sso_session",
+      "value": "eyJib29raW5nX2dsb2JhbCI6eyJkYXRhX3N1YmplY3RfaWQiOiJjYTBiZDA2Ni0xNjc0LTRiNTAtYjNlYy01YzkxYTViNjFmMDgiLCJzZXNzaW9ucyI6W119fQ",
+      "domain": ".account.booking.com",
+      "path": "/",
+      "expires": 1807868918.342902,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "OptanonConsent",
+      "value": "implicitConsentCountry=GDPR&implicitConsentDate=1773308914162&isGpcEnabled=0&datestamp=Thu+Mar+12+2026+10%3A48%3A44+GMT%2B0100+(Central+European+Standard+Time)&version=202408.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=966305a2-5921-4f62-93e4-eae7ed938503&interactionCount=1&isAnonUser=1&landingPath=https%3A%2F%2Faccount.booking.com%2Fsign-in&groups=C0001%3A1%2CC0002%3A0%2CC0004%3A0",
+      "domain": ".account.booking.com",
+      "path": "/",
+      "expires": 1788860924,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://account.booking.com",
+      "localStorage": [
+        {
+          "name": "5718FABB002E",
+          "value": "AAwQt1ybOcElFqBnE_IYmjgoBjTMJsj44an6yqzkGX_4sDEvnQWekERiDEe290Or7ub-RVbsp1xdlCzttDm8zaP8O5Hgxg"
+        },
+        {
+          "name": "awswaf_token_refresh_timestamp",
+          "value": "1773308914754"
+        },
+        {
+          "name": "awswaf_session_storage",
+          "value": "a949254a-1f6d-4704-8ae8-07ec5fa07f9b:CQoAj1ZDZVyCAAAA:MOEahfXuJNRIykkNNz3ikRvamWDpbiARhowLTR/XdP0D+SCLFLUweRrXqkmwyuW6JYwnmmbiM/QJW0z9nvqXe3JxorhOeI3QB+GICnNjQ2TjTt+ph/hAFT62ZcjQtHH/zE6r8YRVHTCS0nrwNzFwKlvaGbOfnN4Fh/yuz3I3qNAY7oBl6JZXO6rM0ysFKULDybZGF3VO1pE8oDoSHwItfHD1O8GQK97/CJqbqZcPvylv31HePuGldg+3WD+EE8qkMpa3WKag+Mqc2O5eTBWBdRrcq4cXPUuS+xtSch4EaNAaQkOTp23Hal0f1sjlCA+UXs9FjSZtrTEd1SOuMkHoHwSotyvrVH9ezeN0m0KXiTnbX0EFn36qwLQ3tGe7J+/aS78uvovIhr9cwIOBHV7zU5QJgZ/7J78Bm3spSebWY45bnoOwcNTXST/rgEQZnl0pRRNM1oGxZkHMgdeH0gKerC+cy64eza8uS7FOoBo="
+        },
+        {
+          "name": "ed73f20edbf2b74",
+          "value": "0:1:1773308912127:1773308912127:298fff4f12f551ad185c3b254908ca9e"
+        },
+        {
+          "name": "ed73f20edbf2b73",
+          "value": "4b397667bf094328ae0d4d07f6fe55cd_1928828914347"
+        }
+      ]
+    },
+    {
+      "origin": "https://asanalytics.booking.com",
+      "localStorage": [
+        {
+          "name": "ed73f20edbf2b73",
+          "value": "acd472ad0ec5423dadd1b52b8138a25c_1928828915206"
+        },
+        {
+          "name": "5718FABB002E",
+          "value": "AAyncvnrV0oJJ3P_rOoTpmCZ_3ikBnbCPX_WSIBpqXQbs1gcFcYSrLFz8Nh5-t91Spx-Su_WuKBeWIzOrNtejXngjEt41w"
+        }
+      ]
+    }
+  ]
+}
