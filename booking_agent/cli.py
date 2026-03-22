@@ -422,6 +422,12 @@ def messages_smart_reply():
                     pass
             if ok:
                 print_success("Reply sent!")
+                # Auto-save the conversation to past_replies.json
+                from booking_agent.modules.smart_reply import save_past_replies
+                save_past_replies([{
+                    "guest_name": guest_name,
+                    "conversation": f"{guest_name}:\n{guest_message}\n\nYour reply:\n{final_text}",
+                }])
             else:
                 print_error("Failed to send reply. Check the browser window.")
 

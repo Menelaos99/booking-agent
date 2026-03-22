@@ -70,10 +70,9 @@ def load_past_replies() -> str:
 
 
 def save_past_replies(conversations: list[dict]) -> None:
-    """Save scraped conversations to cache."""
+    """Save scraped conversations to cache. Updates existing entries if content changed."""
     PAST_REPLIES_CACHE.parent.mkdir(parents=True, exist_ok=True)
 
-    # Merge with existing cache
     existing = []
     if PAST_REPLIES_CACHE.exists():
         try:
@@ -81,15 +80,27 @@ def save_past_replies(conversations: list[dict]) -> None:
         except Exception:
             pass
 
-    # Deduplicate by guest name
-    seen = {c["guest_name"] for c in existing}
+    # Build lookup by guest name
+    by_name = {c["guest_name"]: i for i, c in enumerate(existing)}
+
+    added = 0
+    updated = 0
     for conv in conversations:
-        if conv["guest_name"] not in seen:
+        name = conv["guest_name"]
+        if name in by_name:
+            old = existing[by_name[name]]
+            # Update if the new conversation is different (longer or new content)
+            if conv["conversation"] != old["conversation"]:
+                _log(f"[dim]Updating {name} ({len(old['conversation'])} → {len(conv['conversation'])} chars)[/dim]")
+                existing[by_name[name]] = conv
+                updated += 1
+        else:
             existing.append(conv)
-            seen.add(conv["guest_name"])
+            by_name[name] = len(existing) - 1
+            added += 1
 
     PAST_REPLIES_CACHE.write_text(json.dumps(existing, ensure_ascii=False, indent=2))
-    _log(f"Cached {len(existing)} past conversations to {PAST_REPLIES_CACHE}")
+    _log(f"Cached {len(existing)} conversations ({added} new, {updated} updated)")
 
 
 async def generate_reply(guest_message: str, guest_name: str, hf_token: str = "") -> str:

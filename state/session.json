@@ -141,21 +141,11 @@
       "sameSite": "Lax"
     },
     {
-      "name": "_gcl_au",
-      "value": "1.1.1000243892.1774184854",
-      "domain": ".booking.com",
-      "path": "/",
-      "expires": 1781960854,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
       "name": "_mkto_trk",
       "value": "id:261-NRZ-371&token:_mch-booking.com-4e39a19458dab1cd4bf5f3033da94162",
       "domain": ".booking.com",
       "path": "/",
-      "expires": 1808752924.363378,
+      "expires": 1808754980.156127,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -165,7 +155,7 @@
       "value": "fb.1.1774184853965.8701644183503593",
       "domain": ".booking.com",
       "path": "/",
-      "expires": 1781969006,
+      "expires": 1781971058,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -175,17 +165,7 @@
       "value": "{%22anonymousId%22:%227d0f5e8977c661a8%22%2C%22consents%22:[]}",
       "domain": ".booking.com",
       "path": "/",
-      "expires": 1808752925.365439,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_evga_c2e4",
-      "value": "{%22uuid%22:%227d0f5e8977c661a8%22%2C%22puid%22:%22Se3mnSx5PnoHXa1fYDD5MFx_c5CJW4MTYs9Q6_jEcsPEP-t8vMS7voRDd3nISFKkMlbnU1-HxiTLHAx1bfSNix-UztqEbeqyui2e9NuAijY%22}",
-      "domain": ".booking.com",
-      "path": "/",
-      "expires": 1808752925.40729,
+      "expires": 1808754981.161364,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Lax"
@@ -261,41 +241,61 @@
       "sameSite": "None"
     },
     {
+      "name": "_evga_c2e4",
+      "value": "{%22uuid%22:%227d0f5e8977c661a8%22%2C%22puid%22:%22Se3mnSx5PnoHXa1fYDD5MFx_c5CJW4MTYs9Q6_jEcsPEP-t8vMS7voRDd3nISFKkMlbnU1-HxiTLHAx1bfSNix-UztqEbeqyui2e9NuAijY%22%2C%22affinityId%22:%220tr%22}",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1808754981.203461,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
       "name": "OptanonConsent",
-      "value": "isGpcEnabled=0&datestamp=Sun+Mar+22+2026+17%3A22%3A04+GMT%2B0200+(Eastern+European+Standard+Time)&version=202408.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=a55cb1bb-6fe6-4deb-9250-d3e39d5bd0c6&interactionCount=0&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0004%3A0&AwaitingReconsent=false",
+      "value": "isGpcEnabled=0&datestamp=Sun+Mar+22+2026+17%3A56%3A20+GMT%2B0200+(Eastern+European+Standard+Time)&version=202408.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=a55cb1bb-6fe6-4deb-9250-d3e39d5bd0c6&interactionCount=0&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A0%2CC0004%3A0&AwaitingReconsent=false",
       "domain": ".admin.booking.com",
       "path": "/",
-      "expires": 1789744924,
+      "expires": 1789746980,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "aws-waf-token",
-      "value": "3bdf3b7f-d8cb-4cb3-b470-41703cd91feb:CQoAhcVrC4pBAAAA:QzpNUyvWltxZTn0E3s7orWaaiWDNwLDG/8r/3nW3xpMl1h9AOePUXClsLhQT8FGLguBghBED8gSAPb74+K0PLWrw0hwmak22L38HaREo0rj9sfYgXBjFmDh8Z6V41vC2qSJzshIdeZCeyiugqWmcmNL0uufN3OeggDLgqvLjf6hHLoPqVcZHWdgAyjfkMJ2+9YV2mJ8+6Enni5jPqzm/kkKzyVev4DipcBurwsxw+6YzPpRrYSDgnpNVAAUcA3gi3/dZoEAF4Vb3IAHsRjUMUZif9ms1Da9Nb7iOoNUKfEXp",
+      "value": "3bdf3b7f-d8cb-4cb3-b470-41703cd91feb:CQoAkF9u4wBPAAAA:Js4Is7vOxIv0C/PAai3lcw3cfAlyJPtuxuFL+FNDqIZYOR78syfTQhkKj2EfvfxIvxcHqf/eSK1VvsprOgJAosmwURUNNQg8xkwnVcXdL0gemoE2pQwtuMMmYijMf1eQKyd29G5OHJNmnlVIos6XJC4NA2uV6tbxHxVxi2PJYyrTRtAIZ0TR7rILMI8xSHVArLDEIw/nWj5GY9GSS37nOq7R6ShnjDZwe0bQPRBB5u/Xhd+iTaJFLx5LD910JhmJBTww6os25eMo1xx2zoHLcCVdCLPb+DeIRHoDkY5TBe+X",
       "domain": ".booking.com",
       "path": "/",
-      "expires": 1774538536,
+      "expires": 1774540591,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "AWSALBTGCORS",
-      "value": "j+75nbiuy8aV1jZNpmTyBVRYEFQ5FR0/jgfXu5R7zaa0uMn8ZZKySu17hXedENhM+WXTZviAkOcYWY2n6x6NXYE4hjIMQ3oEiK2kGKUl57AA4irmMaCU9WulglhI5SGOUA6qzRXaCFmcu+SYgMIeLR3RAq48uEei+989G+l2T9OezAE6Ft0=",
+      "value": "S6ZQkMuzQXBLpzAHCE9u27qaQuo4WP23NsoJRrU0ihReyKJPtQy7k3h9sWvJ34x9IJRkwJZgCU6pVqvlOSGHJXTRKmLLNEPYgpS5uuwxe6aYQu8J2VMH8C96FNmm2hLXLNs4J9VnwoXOK9wLSTep7oexzrcwe39yssrPu3R8Jle32jlVVPk=",
       "domain": "bookingdotcomb2b.germany-2.evergage.com",
       "path": "/",
-      "expires": 1774797785.441005,
+      "expires": 1774799841.236448,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
-      "name": "esadm",
-      "value": "02UmFuZG9tSVYkc2RlIyh9YbxZGyl9Y5%2BPh9Hc0JneBM4uPrMSiehP3pdvP3aMCTDtDZFOEHxGe9c%3D",
+      "name": "_gcl_au",
+      "value": "1.1.1000243892.1774184854.1379416669.1774195058.1774195058",
       "domain": ".booking.com",
       "path": "/",
-      "expires": 1808753008.088398,
+      "expires": 1781960854,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "esadm",
+      "value": "02UmFuZG9tSVYkc2RlIyh9YbxZGyl9Y5%2BPiBZmvP5mjoqzBNHR0QkcFI%2Flfp4rOOdHz86WglrLVzM%3D",
+      "domain": ".booking.com",
+      "path": "/",
+      "expires": 1808755060.475649,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
@@ -307,7 +307,7 @@
       "localStorage": [
         {
           "name": "awswaf_token_refresh_timestamp",
-          "value": "1774192906739"
+          "value": "1774194962235"
         },
         {
           "name": "lastExternalReferrer",
@@ -315,15 +315,15 @@
         },
         {
           "name": "_gcl_ls",
-          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":37,\"timeouts\":0,\"errors\":0,\"creationTimeMs\":1774192905548},\"expires\":1781968905548}}"
+          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":38,\"timeouts\":0,\"errors\":0,\"creationTimeMs\":1774194961025},\"expires\":1781970961025}}"
         },
         {
           "name": "awswaf_session_storage",
-          "value": "3bdf3b7f-d8cb-4cb3-b470-41703cd91feb:CQoAhcVrC4tBAAAA:oxHLdjkcrhEWepNpr8KqWntYrddjZDkOtIQrsqoaYahm8aydLel+pjVa/faoJPcuyR9U1aCpigzrAXXDx5YlZZzSWr3hMxFGXp4qO1sjfChGJ0/Vvs9dnWK3kuZb/8PUOItdEZweq3EGZp7pD2ob8MUBpbekt+hB4SW8wLvRSxe6hzWcILoRwd0v0AH1oErDKU+JFfvfae2yJJoyTsXl9FNmLegeC0VwXFhLeCin01mURqPtjdchewGzbTIkQ/bBSIWbmEGTNPJOUoMfYM33o2yESB2MVfNz+yy8lVlA0OCEcKuGLK1fPScbhtTcSAeUBAZtQpPR1nfHVyfWnQhDLtqKCRsqmFunF9l/Au6FJDktWhhLH4w2KA3T0gsunxwHd/vk6OIHP/DGdGx6PTQtpcvqnRO5uOTgCfO7Fde3FYweggLbtwpmNV1WJMAXZBOlvq9hrhcy3lTzxYaddFkWWo++sLhWCTcrL5JtJfVyg1bY91kgo8Pc3LpAKciu8CqS+6v5slkyCcKU6Dyc/DuwJU3a4GteFYFg5YuxcUli3mHYwPVu2S/7uCM2qCpxlpupHC5pOm1JSKpY85IPS9NaGptiPg=="
+          "value": "3bdf3b7f-d8cb-4cb3-b470-41703cd91feb:CQoAkF9u4wFPAAAA:rLYPvDRZmdnMVqa48TEZUJCj79cNQPOwuEPv14QfmWCZ3HVmo4CePTt/GRcZ25Ui/qNimVYVenpx/d3G8dq7MkI/z7DEPZXGyuVhsD4RTAIKbyP7LoU0sNyHsa+SSovtc6/QF69cQBG+0vduAEs+Zf1uX+mtTt0HoDhB8deLGD4H4wS3uQyDG3fbRYFlunpVdX6mda66e6kvbIeKaXxzlrVWhanN77TuFv4mJwASy0Ce4LldQOXedPsn1xvsXdZ96pgWfMQ+locqEuBalcm45U6d5jL2hC6Sd9BINm7Gc+9viM0ErF9m7e/t66PJrSGe0f1Q2EYfD4yjbbXQmjNIcE7YulAN6aqecVdTucN+aWh2/DBx9DGQkxFwhNYAZam9p98xvIN5R2vgyhGZNE2b+XsXn/tlPjjtcw961J0ZY+6b+1FtzL3lNhhWqXAHJbPBx8uZQ6u446+CamGc/r1UhqUB3I1eBzBDHdfb2TCxSRRUR/dwP1LQRpX34EbDaKtc7KfeIzlnM+PA3b1JSmKcYg4Vb6+JGVCSsVZx/30IWHNTwNQ8GZSnt8rmw3R+mYLtpT/Vdnp2pqJ38xCRA2rnH3tSEw=="
         },
         {
           "name": "lastExternalReferrerTime",
-          "value": "1774192924408"
+          "value": "1774194980238"
         }
       ]
     },
