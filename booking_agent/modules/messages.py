@@ -163,45 +163,94 @@ async def scrape_past_conversations(page: Page, settings: Settings, max_messages
         _log("[yellow]Could not find message list[/yellow]")
         return []
 
-    name_elements = await page.query_selector_all('.list-item__title-text, [class*="list-item__title-text"]')
-    _log(f"Found {len(name_elements)} sent messages")
+    # Scrape messages page by page — "More messages" loads the next batch
+    all_conversations = []
+    page_num = 1
 
-    conversations = []
+    while len(all_conversations) < max_messages:
+        name_elements = await page.query_selector_all('.list-item__title-text, [class*="list-item__title-text"]')
+        _log(f"Page {page_num}: {len(name_elements)} messages")
 
-    for idx, name_el in enumerate(name_elements):
-        if len(conversations) >= max_messages:
+        for idx, name_el in enumerate(name_elements):
+            if len(all_conversations) >= max_messages:
+                break
+            guest_name = (await name_el.inner_text()).strip()
+
+            # Skip if already scraped (from previous page)
+            if any(c["guest_name"] == guest_name for c in all_conversations):
+                continue
+
+            _log(f"Opening message: {guest_name}")
+            try:
+                await name_el.evaluate("el => el.closest('button')?.click() || el.click()")
+            except Exception:
+                continue
+            await human_delay(1500, 2500)
+
+            # Extract structured messages from the chat panel via JS
+            messages = await page.evaluate("""(guestName) => {
+                const chat = document.querySelector('.guest-chat, [class*="guest-chat"]');
+                if (!chat) return null;
+
+                // Find all message bubbles — they're typically in distinct containers
+                // Guest messages and host replies have different styling
+                const result = [];
+                const allText = chat.querySelectorAll('div, p, span');
+                let currentMsg = '';
+                let currentSender = '';
+
+                // Simple heuristic: walk through text nodes and group by sender
+                // Messages from the host (you) are typically right-aligned or in colored bubbles
+                // For now, extract the clean text and label by position
+                const rawText = chat.innerText || '';
+
+                // Remove UI noise
+                const noise = [
+                    'Reply', 'Protect your account security', 'Please do not share sensitive',
+                    'Read more', 'Report an issue', 'Images', 'Templates', 'Send',
+                    'Never share sensitive information', 'contacting Partner Support',
+                    'No reply needed', 'Delivered', 'Seen'
+                ];
+                let cleaned = rawText;
+                for (const n of noise) {
+                    cleaned = cleaned.split(n).join('');
+                }
+
+                // Clean up whitespace
+                cleaned = cleaned.replace(/\\n{3,}/g, '\\n\\n').trim();
+                return cleaned;
+            }""", guest_name)
+
+            if messages:
+                all_conversations.append({
+                    "guest_name": guest_name,
+                    "conversation": messages[:1500],
+                })
+                _log(f"[green]Captured: {guest_name} ({len(messages)} chars)[/green]")
+
+        # Try to load more by clicking the "More messages" BUTTON (not span)
+        try:
+            loaded_more = await page.evaluate("""() => {
+                const spans = Array.from(document.querySelectorAll('span'));
+                const more = spans.find(s => s.textContent.trim() === 'More messages');
+                if (!more) return false;
+                // The click handler is on the parent <button>, not the <span>
+                const btn = more.closest('button') || more.parentElement;
+                if (btn) { btn.click(); return true; }
+                return false;
+            }""")
+            if loaded_more:
+                _log("Loading more messages...")
+                await human_delay(3000, 5000)
+                page_num += 1
+            else:
+                _log("No more pages — done")
+                break
+        except Exception:
             break
 
-        guest_name = (await name_el.inner_text()).strip()
-        _log(f"Opening message {idx}: {guest_name}")
-
-        # Click the message to open it
-        try:
-            await name_el.evaluate("el => el.closest('button')?.click() || el.click()")
-        except Exception:
-            _log(f"[yellow]Could not click message {idx}[/yellow]")
-            continue
-        await human_delay(1500, 2500)
-
-        # Extract the conversation from the right panel
-        chat_el = await page.query_selector('.guest-chat, [class*="guest-chat"]')
-        if not chat_el:
-            _log(f"[dim]No chat panel found for {guest_name}[/dim]")
-            continue
-
-        chat_text = (await chat_el.inner_text()).strip()
-        _log(f"[dim]Chat text length: {len(chat_text)} chars[/dim]")
-
-        # Include all conversations — even if we haven't replied yet,
-        # the guest's message itself is useful context
-        if chat_text:
-            conversations.append({
-                "guest_name": guest_name,
-                "conversation": chat_text[:1500],
-            })
-            _log(f"[green]Captured conversation with {guest_name}[/green]")
-
-    return conversations
+    _log(f"Total conversations scraped: {len(all_conversations)}")
+    return all_conversations
 
 
 async def read_message(page: Page, settings: Settings, message_id: str) -> dict:

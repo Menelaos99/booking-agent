@@ -22,24 +22,17 @@ Guest name: {guest_name}
 Guest message:
 {guest_message}
 
-=== PRIORITY 1: Your past replies to similar guests ===
-Study these real conversations you've had before. Match the tone, style, and level of detail.
+=== Your past conversations with other guests (for tone and style reference) ===
 {past_replies}
 
-=== PRIORITY 2: Your template responses (prokat texts) ===
-Use these as a base if no past reply is a good match.
-{templates}
-
 Instructions:
-- This is an INITIAL message (first contact with this guest — no prior conversation)
-- FIRST check your past replies for a similar situation — if you find one, use it as the primary basis and adapt it
-- If no past reply fits, fall back to the prokat templates
+- Reply naturally to what the guest is asking — answer their question directly
 - Match the language of the guest's message (Greek → Greek, English → English)
-- Personalize: replace placeholders with the guest's actual name
-- If the guest asks something specific (late check-in, pets, etc.), address that FIRST, then include relevant info
-- Keep the tone warm, professional, and hospitable — match the style of your past replies
+- Use your past replies above ONLY as a style/tone reference — do NOT copy-paste templates
+- Keep it concise and to the point — don't dump house instructions unless they ask for them
+- Be warm, professional, and hospitable
+- Address the guest by name
 - Sign as "Menelaos" (English) or "Μενέλαος" (Greek)
-- Do NOT include subject lines or "Re:" — just the message body
 
 Reply ONLY with the message text, nothing else."""
 
@@ -100,20 +93,18 @@ def save_past_replies(conversations: list[dict]) -> None:
 
 
 async def generate_reply(guest_message: str, guest_name: str, hf_token: str = "") -> str:
-    """Generate a personalized reply using past replies + prokat templates + HF LLM."""
+    """Generate a personalized reply using past conversations as style reference."""
     from huggingface_hub import InferenceClient
 
-    templates = load_prokat_templates()
     past_replies = load_past_replies()
 
     prompt = REPLY_PROMPT.format(
         guest_name=guest_name,
         guest_message=guest_message,
         past_replies=past_replies,
-        templates=templates,
     )
 
-    _log("Generating reply (past replies + prokat templates)...")
+    _log("Generating reply from past conversations...")
 
     client = InferenceClient(
         model="Qwen/Qwen2.5-7B-Instruct",
