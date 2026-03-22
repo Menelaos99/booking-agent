@@ -26,15 +26,15 @@ RESERVATION_TOTAL = "td:nth-child(6)"
 RESERVATION_ID_LINK = "td:nth-child(1) a"
 
 # --- Messages ---
-MESSAGES_LIST = '.messages-list, [data-testid="messages-list"]'
-MESSAGE_ITEM = ".message-item, .conversation-item"
-MESSAGE_UNREAD = '.unread, [data-testid="unread"]'
-MESSAGE_GUEST_NAME = ".guest-name, .sender-name"
-MESSAGE_SUBJECT = ".message-subject, .subject"
-MESSAGE_DATE = ".message-date, .date"
-MESSAGE_BODY = ".message-body, .message-content"
-MESSAGE_REPLY_INPUT = 'textarea[name="reply"], textarea.reply-input'
-MESSAGE_SEND_BUTTON = 'button:has-text("Send"), button[type="submit"]'
+MESSAGES_LIST = '.guest-tab--desktop, .guest-tab, [class*="guest-tab"]'
+MESSAGE_ITEM = 'button.dadb648d92, button[class*="list-item"], .list-item__title-text'
+MESSAGE_GUEST_NAME = '.list-item__title-text, [class*="list-item__title-text"]'
+MESSAGE_DATE = '[class*="list-item__date"], [class*="list-item__subtitle"]'
+MESSAGE_UNREAD = '[class*="unread"], [class*="badge"]'
+MESSAGE_SUBJECT = '[class*="list-item__subtitle"], [class*="list-item__preview"]'
+MESSAGE_BODY = '.guest-chat, [class*="guest-chat"]'
+MESSAGE_REPLY_INPUT = 'textarea, [contenteditable="true"], input[type="text"][class*="reply"]'
+MESSAGE_SEND_BUTTON = 'button:has-text("Reply"), button:has-text("Send"), button[type="submit"]'
 
 # --- Pricing ---
 PRICING_CALENDAR = '.rate-calendar, [data-testid="pricing-calendar"]'

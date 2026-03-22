@@ -17,11 +17,17 @@ from booking_agent.utils.selectors import (
     OTP_SUBMIT_BUTTON,
     TWO_FA_INDICATOR,
 )
+from booking_agent.antibot import (
+    human_click,
+    human_scroll,
+    human_type,
+)
 from booking_agent.utils.waits import human_delay, safe_click, safe_fill
 
 console = Console()
 
 TWO_FA_TIMEOUT_MS = 300_000  # 5 minutes
+MAX_LOGIN_ITERATIONS = 25
 
 
 def _log(msg: str) -> None:
@@ -29,65 +35,156 @@ def _log(msg: str) -> None:
     console.print(f"[dim][{ts}][/dim] {msg}")
 
 
-async def _wait_for_manual_step(page: Page, description: str, timeout_ms: int = TWO_FA_TIMEOUT_MS) -> None:
-    """Prompt the user and wait for them to complete a step in the headed browser."""
-    _log(f"[bold yellow]ACTION REQUIRED:[/bold yellow] {description}")
-    _log(f"[dim]Waiting up to {timeout_ms // 60_000} minutes...[/dim]")
+# =========================================================================
+# State detection
+# =========================================================================
 
+async def _detect_page_state(page: Page, settings: Settings) -> str:
+    """Detect page state. Uses vision LLM if enabled, otherwise DOM-based."""
+    if settings.vision_login:
+        try:
+            from booking_agent.auth.vision import detect_page_state_vision
+            state = await detect_page_state_vision(page, hf_token=settings.hf_token)
+            if state != "unknown":
+                return state
+            _log("[dim][vision] Got 'unknown', falling back to DOM[/dim]")
+        except Exception as e:
+            _log(f"[dim][vision] Failed ({e}), falling back to DOM[/dim]")
+
+    return await _detect_page_state_dom(page)
+
+
+async def _detect_page_state_dom(page: Page) -> str:
+    """DOM-based page state detection (fallback).
+
+    Returns one of:
+      "extranet"           — on admin.booking.com (done!)
+      "logged_in"          — on booking.com but not sign-in (need to navigate to extranet)
+      "captcha"            — CAPTCHA/challenge blocking the page
+      "2fa"                — OTP input visible
+      "password_form"      — password field visible
+      "email_form"         — email/username field visible
+      "email_verification" — "check your email" interstitial
+      "unknown"            — can't determine state
+    """
     try:
-        await page.wait_for_url("**/admin.booking.com/**", timeout=timeout_ms)
+        url = page.url
     except Exception:
-        raise TimeoutError(f"Timed out waiting for manual step: {description}") from None
+        return "unknown"
 
+    # Already at extranet
+    if "admin.booking.com" in url:
+        return "extranet"
 
-async def _wait_for_captcha_completion(page: Page, timeout_ms: int = TWO_FA_TIMEOUT_MS) -> None:
-    """Wait for CAPTCHA elements to disappear after the user solves them."""
-    _log("[bold yellow]ACTION:[/bold yellow] Solve the CAPTCHA in the browser window.")
-    _log(f"[dim]Waiting up to {timeout_ms // 60_000} minutes...[/dim]")
+    # On booking.com but not sign-in = logged in
+    if "booking.com" in url and "account.booking.com/sign-in" not in url:
+        return "logged_in"
+
+    # On sign-in page — check what's visible
     try:
-        for selector in CAPTCHA_INDICATOR.split(", "):
-            await page.wait_for_selector(selector, state="detached", timeout=timeout_ms)
+        # CAPTCHA elements?
+        for sel in CAPTCHA_INDICATOR.split(", "):
+            if await page.query_selector(sel):
+                return "captcha"
+
+        # 2FA input?
+        for sel in TWO_FA_INDICATOR.split(", "):
+            if await page.query_selector(sel):
+                return "2fa"
+
+        # Password field visible? (check before email — both may exist but password means we're past email)
+        if await page.query_selector(LOGIN_PASSWORD_INPUT):
+            return "password_form"
+
+        # Email field visible?
+        if await page.query_selector(LOGIN_EMAIL_INPUT):
+            return "email_form"
+
+        # Check for verification text
+        body = (await page.text_content("body") or "").lower()
+        verification_phrases = [
+            "verify your email", "check your email", "confirmation link",
+            "confirm it", "verify it", "sent you a link", "verification code",
+        ]
+        if any(phrase in body for phrase in verification_phrases):
+            return "email_verification"
+
+        # Check for AWS WAF challenge text
+        challenge_phrases = ["verify you are human", "not a robot", "checking your browser"]
+        if any(phrase in body for phrase in challenge_phrases):
+            return "captcha"
+
     except Exception:
-        raise TimeoutError("Timed out waiting for CAPTCHA to be solved.") from None
-    _log("[green]CAPTCHA solved[/green]")
+        return "unknown"
+
+    return "unknown"
+
+
+# =========================================================================
+# Action helpers (single-purpose, simple)
+# =========================================================================
+
+async def _fill_email(page: Page, settings: Settings) -> None:
+    """Enter email and click next."""
+    _log("Entering email...")
+    filled = await human_type(page, LOGIN_EMAIL_INPUT, settings.booking_email, timeout=5_000, fast=True)
+    if not filled:
+        filled = await safe_fill(page, LOGIN_EMAIL_INPUT, settings.booking_email, timeout=5_000)
+    if not filled:
+        _log("[yellow]Could not fill email field[/yellow]")
+        return
+
+    await human_delay()
+    clicked = await human_click(page, LOGIN_NEXT_BUTTON, timeout=5_000)
+    if not clicked:
+        await safe_click(page, LOGIN_NEXT_BUTTON, timeout=5_000)
+    await human_delay(1500, 3000)
+
+
+async def _fill_password(page: Page, settings: Settings) -> None:
+    """Enter password and click submit."""
+    _log("Entering password...")
+    filled = await human_type(page, LOGIN_PASSWORD_INPUT, settings.booking_password, timeout=5_000)
+    if not filled:
+        filled = await safe_fill(page, LOGIN_PASSWORD_INPUT, settings.booking_password, timeout=5_000)
+    if not filled:
+        _log("[yellow]Could not fill password field[/yellow]")
+        return
+
+    await human_delay()
+    submitted = await human_click(page, LOGIN_SUBMIT_BUTTON, timeout=5_000)
+    if not submitted:
+        submitted = await safe_click(page, LOGIN_SUBMIT_BUTTON, timeout=5_000)
+    if not submitted:
+        _log("[yellow]Could not click submit button[/yellow]")
     await human_delay(2000, 4000)
 
 
-async def _detect_challenge(page: Page) -> str | None:
-    """Check for 2FA, CAPTCHA, or other challenges after submitting credentials."""
-    await asyncio.sleep(2)
+async def _wait_for_challenge_cleared(page: Page, settings: Settings, *, timeout_s: float = 300) -> None:
+    """Wait for a challenge (CAPTCHA, email verification) to clear.
 
-    for selector in TWO_FA_INDICATOR.split(", "):
-        if await page.query_selector(selector):
-            return "2fa"
+    Polls the page state until it changes from captcha/email_verification to something else.
+    """
+    _log("[bold yellow]ACTION:[/bold yellow] Complete the challenge in the browser window.")
+    _log(f"[dim]Waiting up to {timeout_s / 60:.0f} minutes...[/dim]")
 
-    for selector in CAPTCHA_INDICATOR.split(", "):
-        if await page.query_selector(selector):
-            return "captcha"
+    start = asyncio.get_event_loop().time()
+    while asyncio.get_event_loop().time() - start < timeout_s:
+        await asyncio.sleep(2)
+        state = await _detect_page_state(page, settings)
+        if state not in ("captcha", "email_verification", "unknown"):
+            _log(f"[green]Challenge cleared → {state}[/green]")
+            return
 
-    # Check for email-link verification or "confirm it's you" challenges
-    page_text = await page.text_content("body") or ""
-    verification_phrases = [
-        "verify your email",
-        "check your email",
-        "confirmation link",
-        "confirm it",
-        "verify it",
-        "sent you a link",
-        "verification code",
-    ]
-    lower_text = page_text.lower()
-    for phrase in verification_phrases:
-        if phrase in lower_text:
-            return "email_verification"
-
-    return None
+    raise TimeoutError("Timed out waiting for challenge to be solved.")
 
 
-async def _handle_otp_challenge(page: Page, settings: Settings) -> None:
-    """Attempt to auto-fill OTP from Gmail, falling back to manual entry."""
+async def _handle_otp(page: Page, settings: Settings) -> None:
+    """Attempt to auto-fill OTP from Gmail, falling back to manual wait."""
     if not settings.gmail_otp_enabled:
-        await _wait_for_manual_step(page, "Complete 2FA verification in the browser window.")
+        _log("[bold yellow]ACTION:[/bold yellow] Complete 2FA in the browser window.")
+        _log(f"[dim]Waiting up to 5 minutes...[/dim]")
+        await _wait_for_challenge_cleared(page, settings, timeout_s=TWO_FA_TIMEOUT_MS / 1000)
         return
 
     from booking_agent.auth.gmail_otp import fetch_otp_from_gmail
@@ -107,134 +204,155 @@ async def _handle_otp_challenge(page: Page, settings: Settings) -> None:
             _log("[yellow]Found OTP but could not fill the input field.[/yellow]")
 
     _log("[yellow]Falling back to manual OTP entry.[/yellow]")
-    await _wait_for_manual_step(page, "Complete 2FA verification in the browser window.")
+    await _wait_for_challenge_cleared(page, settings, timeout_s=TWO_FA_TIMEOUT_MS / 1000)
 
 
-async def perform_login(page: Page, settings: Settings) -> None:
-    """Execute the full Booking.com login flow."""
-    _log("Navigating to Booking.com sign-in...")
-    await page.goto(settings.sign_in_url, wait_until="domcontentloaded", timeout=30_000)
-    await human_delay(1000, 2000)
+async def _navigate_to_extranet(page: Page, settings: Settings) -> bool:
+    """Navigate to the extranet and verify we got there.
 
-    # --- Email ---
-    _log("Entering email...")
-    email_filled = await safe_fill(page, LOGIN_EMAIL_INPUT, settings.booking_email, timeout=10_000)
-    if not email_filled:
-        raise RuntimeError("Could not find email input on login page")
-
-    await human_delay()
-    await safe_click(page, LOGIN_NEXT_BUTTON, timeout=5_000)
-    await human_delay(1500, 3000)
-
-    # --- Check for challenges after email (Booking.com may verify before showing password) ---
-    pre_password_challenge = await _detect_challenge(page)
-    if pre_password_challenge == "email_verification":
-        _log("[yellow]Email verification challenge detected (before password)[/yellow]")
-        await _wait_for_manual_step(
-            page,
-            "Complete the email verification in the browser window "
-            "(check your inbox for a link or code from Booking.com).",
-        )
-        # After verification, Booking.com may redirect — re-check if we need to enter password
-        if "admin.booking.com" in page.url:
-            _log("[bold green]Login successful after verification![/bold green]")
-            return
-        # Otherwise fall through to password entry
-        await human_delay(1000, 2000)
-    elif pre_password_challenge == "captcha":
-        _log("[yellow]CAPTCHA detected (before password)[/yellow]")
-        await _wait_for_captcha_completion(page)
-
-    # --- Password ---
-    _log("Entering password...")
-    password_filled = await safe_fill(page, LOGIN_PASSWORD_INPUT, settings.booking_password, timeout=10_000)
-    if not password_filled:
-        raise RuntimeError("Could not find password input on login page")
-
-    await human_delay()
-    submitted = await safe_click(page, LOGIN_SUBMIT_BUTTON, timeout=5_000)
-    if not submitted:
-        _log("[yellow]Warning: could not click submit button[/yellow]")
-    await human_delay(2000, 4000)
-
-    # --- Challenges (sequential: CAPTCHA then OTP) ---
-    _log("Detecting challenges...")
-    for _round in range(3):
-        challenge = await _detect_challenge(page)
-        if challenge == "captcha":
-            _log("[yellow]CAPTCHA detected[/yellow]")
-            await _wait_for_captcha_completion(page)
-            _log("Re-checking for further challenges...")
-        elif challenge == "2fa":
-            _log("[yellow]OTP challenge detected[/yellow]")
-            await _handle_otp_challenge(page, settings)
-            break
-        elif challenge == "email_verification":
-            _log("[yellow]Email verification challenge detected[/yellow]")
-            await _wait_for_manual_step(
-                page,
-                "Complete the email verification in the browser window "
-                "(check your inbox for a link or code from Booking.com).",
-            )
-            break
-        else:
-            _log("[green]No challenge detected, proceeding[/green]")
-            break
-
-    # --- Verify login success ---
-    await asyncio.sleep(3)
-    url = page.url
-
-    # Auth may land on www.booking.com with auth_success=1 instead of the extranet
-    # Exclude the sign-in page itself — being on account.booking.com/sign-in means login failed
-    on_sign_in = "account.booking.com/sign-in" in url
-    auth_ok = not on_sign_in and (
-        "admin.booking.com" in url
-        or "auth_success=1" in url
-        or "booking.com" in url
-    )
-
-    if not auth_ok:
-        # Wait a bit longer — the login may still be redirecting
-        try:
-            await page.wait_for_url(
-                lambda u: "booking.com" in u and "account.booking.com/sign-in" not in u,
-                timeout=15_000,
-            )
-        except Exception:
-            raise RuntimeError(
-                f"Login did not succeed. Current URL: {page.url}"
-            ) from None
-
-    # Navigate to the extranet now that we're authenticated
+    Returns True if we reached the extranet, False if we got redirected back
+    to sign-in (meaning we need to re-enter credentials).
+    """
     _log("Navigating to extranet...")
     try:
         await page.goto(settings.extranet_base, wait_until="commit", timeout=30_000)
     except Exception:
-        pass  # Page may redirect or be slow — that's OK
+        pass
 
-    # Wait for the URL to settle on admin.booking.com
-    for i in range(10):
+    for i in range(5):
         await asyncio.sleep(3)
-        current = page.url
-        _log(f"[dim]({i+1}/10) URL: {current[:80]}...[/dim]")
+        try:
+            current = page.url
+        except Exception:
+            continue
+        _log(f"[dim]({i+1}/5) URL: {current[:80]}...[/dim]")
         if "admin.booking.com" in current:
             _log("[bold green]Login successful![/bold green]")
-            return
+            return True
 
-    # If we ended up back on the sign-in page, login actually failed
-    if "account.booking.com/sign-in" in page.url:
-        raise RuntimeError(
-            "Login failed — redirected back to sign-in page. "
-            "Check your credentials or look for an undetected challenge (email verification, CAPTCHA, etc.)."
-        )
+    try:
+        url = page.url
+    except Exception:
+        url = ""
 
-    # If we're on any other booking.com page, auth likely worked — session will be saved
-    if "booking.com" in page.url:
+    if "account.booking.com/sign-in" in url:
+        _log("[yellow]Redirected back to sign-in — not logged in yet, retrying...[/yellow]")
+        return False
+
+    if "booking.com" in url:
         _log("[bold yellow]Reached booking.com but not the extranet directly.[/bold yellow]")
         _log("Session saved — the extranet should work on next command.")
-        return
+        return True
 
-    raise RuntimeError(
-        f"Authenticated but could not reach the extranet. Current URL: {page.url}"
-    )
+    _log(f"[yellow]Unexpected URL: {url[:80]} — retrying...[/yellow]")
+    return False
+
+
+# =========================================================================
+# Main login — reactive state machine
+# =========================================================================
+
+async def perform_login(page: Page, settings: Settings) -> None:
+    """Execute the Booking.com login flow as a reactive state machine.
+
+    Instead of a linear script, we detect the current page state and act accordingly.
+    This handles form resets, redirects, and challenges gracefully.
+    """
+    _log("Navigating to Booking.com sign-in...")
+    await page.goto(settings.sign_in_url, wait_until="domcontentloaded", timeout=30_000)
+    await human_delay(1000, 2000)
+    await human_scroll(page)
+
+    last_action = None
+
+    for attempt in range(MAX_LOGIN_ITERATIONS):
+        if settings.vision_login:
+            # ── Agent mode: vision decides the action, tools execute it ──
+            from booking_agent.auth.vision import get_agent_action
+            from booking_agent.auth import tools
+
+            try:
+                agent_action = await get_agent_action(page, hf_token=settings.hf_token)
+            except Exception as e:
+                _log(f"[dim][AGENT] Vision failed ({e}), falling back to DOM[/dim]")
+                agent_action = None
+
+            if agent_action and agent_action.action != "wait":
+                action = agent_action.action
+
+                # Dedup: if agent repeats the same action, wait instead
+                if action == last_action and action in ("enter_email", "enter_password"):
+                    _log(f"[dim][AGENT] Same action repeated ({action}) — waiting for page to update[/dim]")
+                    await asyncio.sleep(3)
+                    last_action = None  # Reset so next iteration can retry
+                    continue
+
+                last_action = action
+
+                if action == "enter_email":
+                    await tools.enter_email(page, settings)
+                elif action == "enter_password":
+                    await tools.enter_password(page, settings)
+                elif action == "fetch_otp":
+                    await tools.fetch_and_type_otp(page, settings)
+                elif action == "verify_identity":
+                    await tools.verify_identity(page, settings)
+                    last_action = None
+                elif action == "wait_human":
+                    await tools.wait_human(page, settings)
+                    last_action = None  # Reset after human interaction
+                elif action == "navigate_extranet":
+                    if await tools.navigate_extranet(page, settings):
+                        return
+                elif action == "done":
+                    _log("[bold green][AGENT][/bold green] Reached extranet — login successful!")
+                    return
+                else:
+                    await asyncio.sleep(2)
+                continue
+
+            # Agent returned "wait" or failed — fall through to DOM-based
+            if agent_action:
+                await asyncio.sleep(2)
+                continue
+
+        # ── DOM mode: state-based detection ──
+        state = await _detect_page_state_dom(page)
+
+        if state == "email_form":
+            _log("[bold cyan][AGENT][/bold cyan] Detected email form → filling email & clicking Next")
+            await _fill_email(page, settings)
+
+        elif state == "password_form":
+            _log("[bold cyan][AGENT][/bold cyan] Detected password form → filling password & submitting")
+            await _fill_password(page, settings)
+
+        elif state == "captcha":
+            _log("[bold yellow][WEBSITE][/bold yellow] CAPTCHA challenge detected")
+            _log("[bold magenta][HUMAN][/bold magenta] Please solve the CAPTCHA in the browser window")
+            await _wait_for_challenge_cleared(page, settings)
+
+        elif state == "2fa":
+            _log("[bold yellow][WEBSITE][/bold yellow] 2FA/OTP challenge detected")
+            await _handle_otp(page, settings)
+
+        elif state == "email_verification":
+            _log("[bold yellow][WEBSITE][/bold yellow] Email verification required")
+            _log("[bold magenta][HUMAN][/bold magenta] Check your inbox and verify your email")
+            await _wait_for_challenge_cleared(page, settings)
+
+        elif state == "extranet":
+            _log("[bold green][AGENT][/bold green] Reached extranet — login successful!")
+            return
+
+        elif state == "logged_in":
+            _log("[bold cyan][AGENT][/bold cyan] Logged in to Booking.com → navigating to extranet")
+            if await _navigate_to_extranet(page, settings):
+                return
+            _log("[bold yellow][WEBSITE][/bold yellow] Redirected back to sign-in — retrying")
+
+        else:
+            _log(f"[dim][AGENT] Unknown state, waiting... URL: {page.url[:80]}[/dim]")
+            await asyncio.sleep(3)
+
+    raise RuntimeError("Login failed — exceeded maximum attempts.")

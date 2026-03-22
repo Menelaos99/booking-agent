@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     headless: bool = True
     slow_mo: int = 0
     gmail_otp_enabled: bool = False
+    vision_login: bool = False
+    hf_token: str = ""
 
     @property
     def extranet_base(self) -> str:

@@ -305,6 +305,129 @@ def messages_reply(
     _run(_reply())
 
 
+@msg_app.command("learn")
+def messages_learn(
+    count: int = typer.Option(5, "--count", "-n", help="Number of past messages to scrape"),
+):
+    """Scrape past conversations to learn your reply style."""
+    from booking_agent.browser import get_authenticated_page
+    from booking_agent.modules.messages import scrape_past_conversations
+    from booking_agent.modules.smart_reply import save_past_replies
+
+    async def _learn():
+        async with get_authenticated_page(get_settings()) as page:
+            console.print(f"[bold cyan][AGENT][/bold cyan] Scraping up to {count} past conversations...")
+            conversations = await scrape_past_conversations(page, get_settings(), max_messages=count)
+            if conversations:
+                save_past_replies(conversations)
+                print_success(f"Learned from {len(conversations)} conversations.")
+                for conv in conversations:
+                    console.print(f"  - {conv['guest_name']}")
+            else:
+                print_info("No replied conversations found to learn from.")
+
+    _run(_learn())
+
+
+@msg_app.command("smart-reply")
+def messages_smart_reply():
+    """Interactive smart reply — draft a personalized response using prokat templates + past replies."""
+    from booking_agent.browser import get_authenticated_page
+    from booking_agent.modules.messages import list_messages, read_message, reply_to_message
+    from booking_agent.modules.smart_reply import generate_reply, edit_in_terminal
+
+    async def _smart_reply():
+        settings = get_settings()
+        async with get_authenticated_page(settings) as page:
+            # 0. Auto-learn past replies if no cache exists
+            from booking_agent.modules.smart_reply import PAST_REPLIES_CACHE
+            if not PAST_REPLIES_CACHE.exists():
+                console.print("[bold cyan][AGENT][/bold cyan] First run — learning from past conversations...")
+                from booking_agent.modules.messages import scrape_past_conversations
+                from booking_agent.modules.smart_reply import save_past_replies
+                conversations = await scrape_past_conversations(page, settings, max_messages=5)
+                if conversations:
+                    save_past_replies(conversations)
+                    console.print(f"[bold cyan][AGENT][/bold cyan] Learned from {len(conversations)} past conversations")
+
+            # 1. Fetch messages
+            console.print("[bold cyan][AGENT][/bold cyan] Fetching messages...")
+            data = await list_messages(page, settings)
+            if not data:
+                print_info("No messages found.")
+                return
+
+            # Print messages as simple list instead of wide table
+            console.print()
+            for msg in data:
+                unread_mark = " [bold red]*[/bold red]" if msg.get("unread") else ""
+                console.print(f"  [bold]{msg['id']}[/bold] | {msg['guest_name']} | {msg['date']}{unread_mark}")
+                console.print(f"      [dim]{msg['subject'][:80]}[/dim]")
+            console.print()
+
+            import sys
+            sys.stdout.flush()
+            sys.stderr.flush()
+
+            msg_id = input("  Which message to reply to? (enter ID): ")
+            msg_id = msg_id.strip()
+
+            if not msg_id.isdigit() or int(msg_id) >= len(data):
+                print_error(f"Invalid message ID: {msg_id}")
+                return
+
+            # 2. Read the full message
+            guest = data[int(msg_id)]
+            console.print(f"[bold cyan][AGENT][/bold cyan] Reading message from {guest['guest_name']}...")
+            detail = await read_message(page, settings, msg_id)
+            if "error" in detail:
+                print_error(detail["error"])
+                return
+
+            guest_message = detail.get("body", detail.get("subject", ""))
+            guest_name = detail.get("guest_name", guest["guest_name"])
+
+            console.print(f"[bold cyan][AGENT][/bold cyan] Guest says:")
+            console.print(f"  [dim]{guest_message[:300]}[/dim]")
+            console.print()
+
+            # 3. Generate reply using prokat templates + LLM
+            console.print("[bold cyan][AGENT][/bold cyan] Drafting reply from prokat templates...")
+            try:
+                draft = await generate_reply(guest_message, guest_name, hf_token=settings.hf_token)
+            except Exception as e:
+                print_error(f"Failed to generate reply: {e}")
+                return
+
+            # 4. Let user review/edit
+            final_text = await edit_in_terminal(draft, guest_name=guest_name, guest_message=guest_message, hf_token=settings.hf_token)
+            if not final_text:
+                print_info("Reply cancelled.")
+                return
+
+            # 5. Send the reply
+            confirm = input("  Confirm SEND? This will post the reply on Booking.com (y/n): ")
+            if confirm.strip().lower() not in ("y", "yes"):
+                print_info("Reply not sent.")
+                return
+
+            console.print("[bold cyan][AGENT][/bold cyan] Sending reply...")
+            # Message is already open from read_message above — send directly
+            ok = await reply_to_message(page, settings, msg_id, final_text)
+            # Take screenshot for debug if it failed
+            if not ok:
+                try:
+                    await page.screenshot(path="state/debug_send_failed.png")
+                except Exception:
+                    pass
+            if ok:
+                print_success("Reply sent!")
+            else:
+                print_error("Failed to send reply. Check the browser window.")
+
+    _run(_smart_reply())
+
+
 # ─────────────────────────── Stats ───────────────────────────
 
 

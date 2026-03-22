@@ -22,7 +22,8 @@ def _log(msg: str) -> None:
     console.print(f"[dim][{ts}][/dim] {msg}")
 
 
-OTP_PATTERN = re.compile(r"\b(\d{4,6})\b")
+# Booking.com sends alphanumeric codes like "9RKUQF" (6 chars, uppercase + digits)
+OTP_PATTERN = re.compile(r"\b([A-Z0-9]{4,8})\b")
 
 
 def _get_gmail_service():
@@ -96,7 +97,7 @@ async def fetch_otp_from_gmail(
         _log(f"[red]Gmail API setup failed: {exc}[/red]")
         return None
 
-    query = "from:noreply@booking.com newer_than:3m"
+    query = "from:noreply-iam@booking.com subject:verification code newer_than:5m"
     cutoff = time.time() - max_age_seconds
 
     for attempt in range(1, max_retries + 1):
@@ -110,7 +111,8 @@ async def fetch_otp_from_gmail(
             messages = results.get("messages", [])
             for msg_meta in messages:
                 msg = service.users().messages().get(
-                    userId="me", id=msg_meta["id"], format="full"
+                    userId="me", id=msg_meta["id"], format="metadata",
+                    metadataHeaders=["Subject"],
                 ).execute()
 
                 # Check message age
@@ -118,10 +120,16 @@ async def fetch_otp_from_gmail(
                 if internal_date < cutoff:
                     continue
 
-                body = _decode_email_body(msg.get("payload", {}))
-                otp = _extract_otp(body)
+                # Extract code from subject line (e.g. "Booking.com – 9RKUQF is your verification code")
+                subject = ""
+                for header in msg.get("payload", {}).get("headers", []):
+                    if header["name"].lower() == "subject":
+                        subject = header["value"]
+                        break
+
+                otp = _extract_otp(subject)
                 if otp:
-                    _log(f"[green]OTP found: {otp}[/green]")
+                    _log(f"[green]Verification code found: {otp}[/green]")
                     return otp
 
         except Exception as exc:

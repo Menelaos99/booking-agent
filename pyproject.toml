@@ -17,6 +17,9 @@ dependencies = [
     "google-api-python-client>=2.0",
     "google-auth-oauthlib>=1.0",
     "google-auth-httplib2>=0.2",
+    "playwright-stealth>=2.0",
+    "huggingface_hub>=0.25",
+    "aioconsole>=0.8",
 ]
 
 [project.scripts]

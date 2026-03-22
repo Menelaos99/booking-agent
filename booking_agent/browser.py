@@ -11,6 +11,12 @@ from typing import AsyncIterator
 from playwright.async_api import BrowserContext, Page, async_playwright
 from rich.console import Console
 
+from booking_agent.antibot import (
+    STEALTH_LAUNCH_ARGS,
+    apply_stealth,
+    get_context_kwargs,
+    wait_for_waf_challenge,
+)
 from booking_agent.config import SESSION_FILE, STATE_DIR, Settings
 
 console = Console()
@@ -60,16 +66,10 @@ async def _create_context(
     browser = await playwright_instance.chromium.launch(
         headless=use_headless,
         slow_mo=settings.slow_mo,
+        args=STEALTH_LAUNCH_ARGS,
     )
 
-    context_kwargs: dict = {
-        "viewport": {"width": 1920, "height": 1080},
-        "user_agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/131.0.0.0 Safari/537.36"
-        ),
-    }
+    context_kwargs = get_context_kwargs()
 
     if restore_session and _has_saved_session():
         context_kwargs["storage_state"] = str(SESSION_FILE)
@@ -117,6 +117,7 @@ async def get_browser_page(
                 pw, settings, headless=headless, restore_session=restore_session,
             )
             page = await context.new_page()
+            await apply_stealth(page)
             try:
                 yield page
             finally:
@@ -138,12 +139,15 @@ async def get_authenticated_page(settings: Settings) -> AsyncIterator[Page]:
         async with async_playwright() as pw:
             browser, context = await _create_context(pw, settings, restore_session=True)
             page = await context.new_page()
+            await apply_stealth(page)
 
             try:
                 has_session = _has_saved_session()
                 if has_session:
                     _log("Restoring saved session...")
                 if has_session and await is_session_valid(page, settings):
+                    # Handle any WAF challenge on the extranet page
+                    await wait_for_waf_challenge(page)
                     yield page
                 else:
                     _log("Session invalid — starting fresh login...")
@@ -155,8 +159,27 @@ async def get_authenticated_page(settings: Settings) -> AsyncIterator[Page]:
                             pw, settings, headless=False, restore_session=False,
                         )
                         page = await context.new_page()
+                        await apply_stealth(page)
 
                     await perform_login(page, settings)
+                    # Verify session by loading extranet home
+                    _log("Verifying session on extranet...")
+                    _log(f"[dim]Current URL before nav: {page.url[:100]}[/dim]")
+                    try:
+                        await page.goto(settings.extranet_base, wait_until="domcontentloaded", timeout=30_000)
+                        # Wait for redirects to settle
+                        for i in range(10):
+                            await asyncio.sleep(3)
+                            url = page.url
+                            _log(f"[dim]Verify ({i+1}/10): {url[:80]}[/dim]")
+                            if "admin.booking.com" in url:
+                                _log("[green]Session verified — extranet loaded[/green]")
+                                break
+                        else:
+                            _log(f"[yellow]Session verification failed — URL: {page.url[:80]}[/yellow]")
+                            await page.screenshot(path="state/debug_session_verify.png")
+                    except Exception as e:
+                        _log(f"[yellow]Session verification error: {e}[/yellow]")
                     await save_session(context)
                     yield page
             finally:
