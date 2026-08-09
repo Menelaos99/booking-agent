@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.menelaos.booking-agent.arrivals</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/uv</string>
+    <string>run</string>
+    <string>booking</string>
+    <string>arrivals</string>
+    <string>scheduled</string>
+    <string>--config</string>
+    <string>/Users/menelaos/Projects/booking-agent/config/arrivals.yaml</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/menelaos/Projects/booking-agent</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>NO_COLOR</key>
+    <string>1</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/menelaos/Projects/booking-agent/state/arrival-scheduler.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/menelaos/Projects/booking-agent/state/arrival-scheduler.log</string>
+</dict>
+</plist>
+

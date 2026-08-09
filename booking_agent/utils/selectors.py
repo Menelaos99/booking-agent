@@ -1,8 +1,21 @@
 # --- Login page ---
-LOGIN_EMAIL_INPUT = 'input[name="loginname"], input[name="username"], input[type="email"]'
-LOGIN_NEXT_BUTTON = 'button[type="submit"], button:has-text("Next"), button:has-text("Continue")'
-LOGIN_PASSWORD_INPUT = 'input[name="password"], input[type="password"]'
-LOGIN_SUBMIT_BUTTON = 'button[type="submit"], button:has-text("Sign in"), button:has-text("Log in"), button:has-text("Submit"), [data-testid="login-button"]'
+LOGIN_EMAIL_INPUT = (
+    'input[name="loginname"]:visible, input[name="username"]:visible, '
+    'input[type="email"]:visible'
+)
+LOGIN_NEXT_BUTTON = (
+    'button[type="submit"]:visible, button:has-text("Next"):visible, '
+    'button:has-text("Continue"):visible'
+)
+LOGIN_PASSWORD_INPUT = (
+    'input[name="password"]:not([aria-hidden="true"]):not(#hidden-password):visible, '
+    'input[type="password"]:not([aria-hidden="true"]):not(#hidden-password):visible'
+)
+LOGIN_SUBMIT_BUTTON = (
+    'button[type="submit"]:visible, button:has-text("Sign in"):visible, '
+    'button:has-text("Log in"):visible, button:has-text("Submit"):visible, '
+    '[data-testid="login-button"]:visible'
+)
 
 # OTP input
 OTP_INPUT = 'input[name="otp"], input[name="code"]'

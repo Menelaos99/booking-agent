@@ -20,6 +20,9 @@ dependencies = [
     "playwright-stealth>=2.0",
     "huggingface_hub>=0.25",
     "aioconsole>=0.8",
+    "pyyaml>=6.0.3",
+    "pillow>=12.3.0",
+    "pymupdf>=1.28.2",
 ]
 
 [project.scripts]
@@ -27,3 +30,11 @@ booking = "booking_agent.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["booking_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

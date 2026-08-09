@@ -1,0 +1,4 @@
+interface:
+  display_name: "Booking Extranet"
+  short_description: "Navigate and run safe Booking workflows"
+  default_prompt: "Use $booking-extranet to open reservations and show my upcoming bookings."

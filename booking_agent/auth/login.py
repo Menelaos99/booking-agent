@@ -93,11 +93,14 @@ async def _detect_page_state_dom(page: Page) -> str:
                 return "2fa"
 
         # Password field visible? (check before email — both may exist but password means we're past email)
-        if await page.query_selector(LOGIN_PASSWORD_INPUT):
+        # Must check visibility — Booking.com keeps a hidden password input in the DOM on the email step
+        pw_el = await page.query_selector(LOGIN_PASSWORD_INPUT)
+        if pw_el and await pw_el.is_visible():
             return "password_form"
 
         # Email field visible?
-        if await page.query_selector(LOGIN_EMAIL_INPUT):
+        email_el = await page.query_selector(LOGIN_EMAIL_INPUT)
+        if email_el and await email_el.is_visible():
             return "email_form"
 
         # Check for verification text
@@ -168,11 +171,16 @@ async def _wait_for_challenge_cleared(page: Page, settings: Settings, *, timeout
     _log("[bold yellow]ACTION:[/bold yellow] Complete the challenge in the browser window.")
     _log(f"[dim]Waiting up to {timeout_s / 60:.0f} minutes...[/dim]")
 
+    initial_state = await _detect_page_state(page, settings)
     start = asyncio.get_event_loop().time()
     while asyncio.get_event_loop().time() - start < timeout_s:
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
         state = await _detect_page_state(page, settings)
-        if state not in ("captcha", "email_verification", "unknown"):
+        # Done if we reached extranet / logged_in, or if state meaningfully changed
+        if state in ("extranet", "logged_in"):
+            _log(f"[green]Challenge cleared → {state}[/green]")
+            return
+        if state != initial_state and state not in ("captcha", "email_verification", "unknown"):
             _log(f"[green]Challenge cleared → {state}[/green]")
             return
 
@@ -187,10 +195,17 @@ async def _handle_otp(page: Page, settings: Settings) -> None:
         await _wait_for_challenge_cleared(page, settings, timeout_s=TWO_FA_TIMEOUT_MS / 1000)
         return
 
-    from booking_agent.auth.gmail_otp import fetch_otp_from_gmail
+    from booking_agent.auth.gmail_otp import (
+        GmailAuthorizationRequired,
+        fetch_otp_from_gmail,
+    )
 
     _log("Fetching OTP from Gmail...")
-    otp = await fetch_otp_from_gmail()
+    try:
+        otp = await fetch_otp_from_gmail(settings=settings)
+    except GmailAuthorizationRequired:
+        _log("[yellow]Gmail must be reconnected; falling back to manual verification.[/yellow]")
+        otp = None
 
     if otp:
         filled = await safe_fill(page, OTP_INPUT, otp, timeout=5_000)
@@ -264,6 +279,8 @@ async def perform_login(page: Page, settings: Settings) -> None:
     await human_scroll(page)
 
     last_action = None
+    last_state = None
+    repeat_count = 0
 
     for attempt in range(MAX_LOGIN_ITERATIONS):
         if settings.vision_login:
@@ -318,6 +335,26 @@ async def perform_login(page: Page, settings: Settings) -> None:
 
         # ── DOM mode: state-based detection ──
         state = await _detect_page_state_dom(page)
+
+        # Dedup: if we keep landing on the same state, something is blocking us
+        if state == last_state and state in ("email_form", "password_form"):
+            repeat_count += 1
+            if repeat_count >= 2:
+                _log(f"[bold yellow][AGENT][/bold yellow] Stuck on {state} (repeated {repeat_count}x) — possible hidden challenge")
+                try:
+                    await page.screenshot(path="state/debug_login_stuck.png")
+                    _log("[dim]Screenshot saved to state/debug_login_stuck.png[/dim]")
+                except Exception:
+                    pass
+                _log("[bold magenta][HUMAN][/bold magenta] Please check the browser — solve any challenge and sign in manually")
+                await _wait_for_challenge_cleared(page, settings)
+                repeat_count = 0
+                last_state = None
+                continue
+        else:
+            repeat_count = 0
+
+        last_state = state
 
         if state == "email_form":
             _log("[bold cyan][AGENT][/bold cyan] Detected email form → filling email & clicking Next")

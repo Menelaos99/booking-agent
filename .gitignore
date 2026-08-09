@@ -2,4 +2,6 @@ state/
 .env
 __pycache__/
 *.pyc
+node_modules/
 .DS_Store
+src/prime-agent/

@@ -78,6 +78,28 @@ async def enter_password(page: Page, settings: Settings) -> None:
 
 
 async def verify_identity(page: Page, settings: Settings, *, timeout_s: float = 300) -> None:
+    """Ensure sensitive Extranet access with Pulse, email, then confirmed SMS."""
+
+    import aioconsole
+
+    from booking_agent.auth.assurance import ensure_messages_access
+
+    async def read_input(kind: str) -> str:
+        if kind == "confirm_sms":
+            return await aioconsole.ainput("  Pulse/email failed. Use SMS fallback? (y/n): ")
+        return await aioconsole.ainput("  Enter SMS code: ")
+
+    result = await ensure_messages_access(
+        page,
+        settings,
+        method=settings.auth_assurance_method,
+        read_input=read_input,
+    )
+    if not result.verified:
+        raise RuntimeError("Booking.com identity verification failed")
+
+
+async def _verify_identity_sms_legacy(page: Page, settings: Settings, *, timeout_s: float = 300) -> None:
     """Handle auth-assurance: click SMS option, then wait for human to enter the code.
 
     Future: could automate SMS reading via Google Messages or similar.
@@ -226,7 +248,7 @@ async def verify_identity(page: Page, settings: Settings, *, timeout_s: float = 
         _log("[yellow]No code entered[/yellow]")
         return
 
-    _log(f"Got SMS code: [bold]{code}[/bold] — typing it in...")
+    _log("SMS code received — typing it in...")
 
     # Find and fill the code input field
     code_selectors = [
@@ -384,11 +406,18 @@ async def navigate_extranet(page: Page, settings: Settings) -> bool:
 
 async def fetch_and_type_otp(page: Page, settings: Settings) -> None:
     """Fetch the latest verification code from Gmail and type it into the OTP field."""
-    from booking_agent.auth.gmail_otp import fetch_otp_from_gmail
+    from booking_agent.auth.gmail_otp import (
+        GmailAuthorizationRequired,
+        fetch_otp_from_gmail,
+    )
     from booking_agent.utils.selectors import OTP_INPUT, OTP_SUBMIT_BUTTON
 
     _log("Fetching verification code from Gmail...")
-    otp = await fetch_otp_from_gmail()
+    try:
+        otp = await fetch_otp_from_gmail(settings=settings)
+    except GmailAuthorizationRequired:
+        _log("[yellow]Gmail must be reconnected before codes can be retrieved[/yellow]")
+        return
 
     if not otp:
         console.print(
@@ -397,7 +426,7 @@ async def fetch_and_type_otp(page: Page, settings: Settings) -> None:
         )
         return
 
-    _log(f"Got code: [bold]{otp}[/bold] — typing it in...")
+    _log("Verification code received — typing it in...")
 
     # Try the configured selector first
     filled = await human_type(page, OTP_INPUT, otp, timeout=3_000, fast=True)

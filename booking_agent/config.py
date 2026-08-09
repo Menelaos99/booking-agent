@@ -1,5 +1,7 @@
 from pathlib import Path
+from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -13,6 +15,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",
         env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     booking_email: str
@@ -21,8 +24,13 @@ class Settings(BaseSettings):
     headless: bool = True
     slow_mo: int = 0
     gmail_otp_enabled: bool = False
+    gmail_account: str = "menelaosfot@gmail.com"
     vision_login: bool = False
     hf_token: str = ""
+    deepseek_api_key: SecretStr = SecretStr("")
+    auth_assurance_method: Literal["auto", "pulse", "email", "sms"] = "auto"
+    auth_assurance_timeout_seconds: int = 300
+    email_otp_timeout_seconds: int = 60
 
     @property
     def extranet_base(self) -> str:

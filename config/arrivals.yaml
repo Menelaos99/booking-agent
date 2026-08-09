@@ -1,0 +1,19 @@
+database:
+  path: state/booking_agent.sqlite3
+
+arrivals:
+  property_timezone: Europe/Athens
+  days_before: 4
+  run_after: "09:00"
+
+gmail:
+  account: menelaosfot@gmail.com
+  sent_search_days: 365
+  inbox_search_days: 180
+
+matching:
+  auto_match_booking_id: true
+  auto_match_exact_email: true
+  auto_match_exact_phone: true
+  require_review_for_name_date: true
+

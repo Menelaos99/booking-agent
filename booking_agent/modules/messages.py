@@ -2,53 +2,55 @@ from __future__ import annotations
 
 from playwright.async_api import Page
 
+from booking_agent.auth.assurance import ensure_messages_access
 from booking_agent.config import Settings
-from booking_agent.utils.selectors import (
-    MESSAGE_BODY,
-    MESSAGE_DATE,
-    MESSAGE_GUEST_NAME,
-    MESSAGE_ITEM,
-    MESSAGE_REPLY_INPUT,
-    MESSAGE_SEND_BUTTON,
-    MESSAGE_SUBJECT,
-    MESSAGE_UNREAD,
-    MESSAGES_LIST,
-)
-from booking_agent.utils.waits import human_delay, safe_click, safe_fill
-
-_MESSAGES_PATH = "/hotel/hoteladmin/extranet_ng/manage/messaging/inbox.html"
+from booking_agent.utils.waits import human_delay
 
 
-def _messages_url(settings: Settings, ses: str = "") -> str:
-    return (
-        f"https://admin.booking.com{_MESSAGES_PATH}"
-        f"?hotel_id={settings.booking_hotel_id}&lang=en&ses={ses}"
+async def _message_descriptor(name_el, index: int) -> dict:
+    descriptor = await name_el.evaluate(
+        """(el, index) => {
+            const button = el.closest('button') || el.parentElement?.parentElement?.parentElement;
+            const candidates = [
+                ['conversation-id', button?.getAttribute('data-conversation-id')],
+                ['thread-id', button?.getAttribute('data-thread-id')],
+                ['reservation-id', button?.getAttribute('data-reservation-id')],
+                ['id', button?.id],
+            ];
+            for (const [key, value] of candidates) {
+                if (value) return {thread_ref: `data:${key}:${value}`, stable: true};
+            }
+            const link = button?.querySelector('a[href]') || button?.closest('a[href]');
+            if (link?.href) return {thread_ref: `href:${link.href}`, stable: true};
+            return {thread_ref: `index:${index}`, stable: false};
+        }""",
+        index,
+    )
+    return descriptor or {"thread_ref": f"index:{index}", "stable": False}
+
+
+async def _message_elements(page: Page):
+    return await page.query_selector_all(
+        '.list-item__title-text, [class*="list-item__title-text"]'
     )
 
 
-def _extract_ses(url: str) -> str:
-    """Extract the ses= session parameter from an extranet URL."""
-    import re
-    match = re.search(r"ses=([^&]+)", url)
-    return match.group(1) if match else ""
-
+async def _find_message_element(page: Page, message_ref: str):
+    elements = await _message_elements(page)
+    if message_ref.isdigit():
+        index = int(message_ref)
+        return (elements[index], index, await _message_descriptor(elements[index], index)) if index < len(elements) else None
+    for index, element in enumerate(elements):
+        descriptor = await _message_descriptor(element, index)
+        if descriptor["thread_ref"] == message_ref:
+            return element, index, descriptor
+    return None
 
 async def list_messages(page: Page, settings: Settings, unread_only: bool = False) -> list[dict]:
     """Scrape the messages / inbox page."""
-    ses = _extract_ses(page.url)
-    await page.goto(_messages_url(settings, ses=ses), wait_until="domcontentloaded", timeout=30_000)
-    await human_delay(2000, 4000)
-
-    # Handle auth-assurance if triggered
-    if "auth-assurance" in page.url or "verify" in page.url:
-        from booking_agent.auth.tools import verify_identity
-        await verify_identity(page, settings)
-        await human_delay(2000, 3000)
-        # After verification, we may need to navigate to inbox again
-        if "messaging" not in page.url:
-            ses = _extract_ses(page.url)
-            await page.goto(_messages_url(settings, ses=ses), wait_until="domcontentloaded", timeout=30_000)
-            await human_delay(2000, 4000)
+    result = await ensure_messages_access(page, settings)
+    if not result.verified:
+        return []
 
     # Wait for the inbox to load — look for message buttons with list-item__title-text
     try:
@@ -63,6 +65,7 @@ async def list_messages(page: Page, settings: Settings, unread_only: bool = Fals
 
     for idx, name_el in enumerate(name_elements):
         guest_name = (await name_el.inner_text()).strip() if name_el else ""
+        descriptor = await _message_descriptor(name_el, idx)
 
         # Walk up to the button parent to get the full message item
         try:
@@ -85,6 +88,8 @@ async def list_messages(page: Page, settings: Settings, unread_only: bool = Fals
 
         results.append({
             "id": str(idx),
+            "thread_ref": descriptor["thread_ref"],
+            "stable_ref": bool(descriptor["stable"]),
             "guest_name": guest_name,
             "subject": preview,
             "date": date,
@@ -109,21 +114,10 @@ async def scrape_past_conversations(page: Page, settings: Settings, max_messages
         ts = datetime.now().strftime("%H:%M:%S")
         _console.print(f"[dim][{ts}][/dim] [bold cyan][AGENT][/bold cyan] {msg}")
 
-    # Navigate to inbox
-    ses = _extract_ses(page.url)
-    await page.goto(_messages_url(settings, ses=ses), wait_until="domcontentloaded", timeout=30_000)
-    await human_delay(2000, 4000)
-
-    # Handle auth-assurance
-    if "auth-assurance" in page.url or "verify" in page.url:
-        from booking_agent.auth.tools import verify_identity
-        _log("Auth-assurance triggered — need SMS verification")
-        await verify_identity(page, settings)
-        await human_delay(2000, 3000)
-        if "messaging" not in page.url:
-            ses = _extract_ses(page.url)
-            await page.goto(_messages_url(settings, ses=ses), wait_until="domcontentloaded", timeout=30_000)
-            await human_delay(2000, 4000)
+    result = await ensure_messages_access(page, settings)
+    if not result.verified:
+        _log("[yellow]Sensitive messages access could not be verified[/yellow]")
+        return []
 
     _log(f"Current URL: {page.url[:80]}")
 
@@ -257,19 +251,9 @@ async def read_message(page: Page, settings: Settings, message_id: str) -> dict:
     """Open a specific message thread and return its content."""
     # Make sure we're on the inbox page
     if "messaging" not in page.url:
-        ses = _extract_ses(page.url)
-        await page.goto(_messages_url(settings, ses=ses), wait_until="domcontentloaded", timeout=30_000)
-        await human_delay(2000, 4000)
-
-        if "auth-assurance" in page.url or "verify" in page.url:
-            from booking_agent.auth.tools import verify_identity
-            from booking_agent.config import get_settings
-            await verify_identity(page, get_settings())
-            await human_delay(2000, 3000)
-            if "messaging" not in page.url:
-                ses = _extract_ses(page.url)
-                await page.goto(_messages_url(settings, ses=ses), wait_until="domcontentloaded", timeout=30_000)
-                await human_delay(2000, 4000)
+        result = await ensure_messages_access(page, settings)
+        if not result.verified:
+            return {"error": "Sensitive messages access could not be verified"}
 
     try:
         await page.wait_for_selector('.list-item__title-text', timeout=15_000)
@@ -277,20 +261,20 @@ async def read_message(page: Page, settings: Settings, message_id: str) -> dict:
         return {"error": "Messages list not found"}
 
     # Click the message at the given index
-    name_elements = await page.query_selector_all('.list-item__title-text, [class*="list-item__title-text"]')
-    idx = int(message_id)
-    if idx >= len(name_elements):
+    target = await _find_message_element(page, message_id)
+    if target is None:
         return {"error": f"Message {message_id} not found"}
+    name_el, idx, descriptor = target
 
     # Click the parent button of the name element
     try:
-        await name_elements[idx].evaluate("el => el.closest('button')?.click() || el.click()")
+        await name_el.evaluate("el => el.closest('button')?.click() || el.click()")
     except Exception:
-        await name_elements[idx].click()
+        await name_el.click()
     await human_delay(1500, 3000)
 
     # Extract guest name from the clicked item
-    guest_name = (await name_elements[idx].inner_text()).strip()
+    guest_name = (await name_el.inner_text()).strip()
 
     # Extract the conversation body from the right panel
     body = ""
@@ -300,13 +284,24 @@ async def read_message(page: Page, settings: Settings, message_id: str) -> dict:
 
     return {
         "id": message_id,
+        "index": str(idx),
+        "thread_ref": descriptor["thread_ref"],
+        "stable_ref": bool(descriptor["stable"]),
         "guest_name": guest_name,
         "subject": "",
         "body": body,
     }
 
 
-async def reply_to_message(page: Page, settings: Settings, message_id: str, text: str) -> bool:
+async def reply_to_message(
+    page: Page,
+    settings: Settings,
+    message_id: str,
+    text: str,
+    *,
+    expected_guest: str | None = None,
+    require_stable_ref: bool = False,
+) -> bool:
     """Reply to a message thread.
 
     Assumes the message is already open in the conversation panel
@@ -322,7 +317,19 @@ async def reply_to_message(page: Page, settings: Settings, message_id: str, text
 
     import asyncio as _asyncio
 
-    # Step 1: Remove all overlays (security banner, cookie banner)
+    detail = await read_message(page, settings, message_id)
+    if "error" in detail:
+        _log(f"[yellow]{detail['error']}[/yellow]")
+        return False
+    if require_stable_ref and not detail.get("stable_ref"):
+        _log("[yellow]Refusing to send without a stable Booking thread reference[/yellow]")
+        return False
+    actual_guest = str(detail.get("guest_name", "")).strip()
+    if expected_guest and actual_guest.casefold() != expected_guest.strip().casefold():
+        _log("[yellow]Target guest changed; refusing to send[/yellow]")
+        return False
+
+    # Step 1: Remove known visual overlays (security banner, cookie banner)
     _log("Removing overlays...")
     await page.evaluate("""() => {
         document.querySelectorAll('[class*="bbe73dce14"]').forEach(el => el.remove());
@@ -347,19 +354,22 @@ async def reply_to_message(page: Page, settings: Settings, message_id: str, text
         _log("[yellow]No textarea found[/yellow]")
         return False
 
-    _log("Typing reply via keyboard...")
-    await page.keyboard.type(text, delay=5)
+    _log("Typing reviewed reply...")
+    textarea = page.locator("textarea").first
+    await textarea.fill(text)
+    if await textarea.input_value() != text:
+        _log("[yellow]Reply text verification failed[/yellow]")
+        return False
     await _asyncio.sleep(1)
 
     # Step 3: Click Send via JS (bypasses any visual overlay)
     _log("Clicking Send via JS...")
-    sent = await page.evaluate("""() => {
-        const btns = Array.from(document.querySelectorAll('button'));
-        const send = btns.find(b => b.textContent.trim() === 'Send');
-        if (!send) return false;
-        send.click();
-        return true;
-    }""")
+    send = page.get_by_role("button", name="Send", exact=True)
+    if await send.count() == 0:
+        _log("[yellow]Could not find Send button[/yellow]")
+        return False
+    await send.first.click()
+    sent = True
 
     if sent:
         await _asyncio.sleep(3)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import tempfile
 from datetime import datetime
@@ -13,14 +14,21 @@ from rich.console import Console
 
 console = Console()
 
-PROKAT_FILE = Path("/Users/menelaos/Documents/obsidian_sync/Random/Booking prokat texts.md")
-PAST_REPLIES_CACHE = Path("/Users/menelaos/Projects/booking-agent/state/past_replies.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROKAT_FILE = Path(
+    "/Users/menelaos/Documents/Documents_mac_mini/obsidian_sync/Random/Booking prokat texts.md"
+)
+PAST_REPLIES_CACHE = PROJECT_ROOT / "state" / "past_replies.json"
+PRIME_AGENT = PROJECT_ROOT / "scripts" / "prime-agent.sh"
 
 REPLY_PROMPT = """You are Menelaos, a hotel host replying to a guest on Booking.com for the property "Blue Door (in the castle of Monembasia)".
 
 Guest name: {guest_name}
 Guest message:
 {guest_message}
+
+=== Your reusable host templates ===
+{prokat_templates}
 
 === Your past conversations with other guests (for tone and style reference) ===
 {past_replies}
@@ -35,6 +43,11 @@ Instructions:
 - Sign as "Menelaos" (English) or "Μενέλαος" (Greek)
 
 Reply ONLY with the message text, nothing else."""
+
+_EMAIL = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE)
+_PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
+_LONG_IDENTIFIER = re.compile(r"\b(?:\d{6,}|(?=[A-Z0-9]{7,}\b)(?=[A-Z0-9]*\d)[A-Z0-9]+)\b")
+_IDENTITY_LINE = re.compile(r"passport|identity document|tax id|ΑΦΜ|διαβατ", re.IGNORECASE)
 
 
 def _log(msg: str) -> None:
@@ -103,32 +116,81 @@ def save_past_replies(conversations: list[dict]) -> None:
     _log(f"Cached {len(existing)} conversations ({added} new, {updated} updated)")
 
 
-async def generate_reply(guest_message: str, guest_name: str, hf_token: str = "") -> str:
-    """Generate a personalized reply using past conversations as style reference."""
-    from huggingface_hub import InferenceClient
+def redact_identity_data(value: str) -> str:
+    lines = []
+    for line in value.splitlines():
+        if _IDENTITY_LINE.search(line):
+            lines.append("[IDENTITY DATA REDACTED]")
+            continue
+        line = _EMAIL.sub("[EMAIL REDACTED]", line)
+        line = _PHONE.sub("[PHONE REDACTED]", line)
+        line = _LONG_IDENTIFIER.sub("[IDENTIFIER REDACTED]", line)
+        lines.append(line)
+    return "\n".join(lines)
 
-    past_replies = load_past_replies()
+
+def _generate_with_prime(prompt: str) -> str:
+    if not PRIME_AGENT.exists():
+        raise FileNotFoundError(f"Prime Agent wrapper not found at {PRIME_AGENT}")
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".md",
+        delete=False,
+        prefix="booking_reply_prompt_",
+        encoding="utf-8",
+    ) as handle:
+        handle.write(prompt)
+        prompt_path = Path(handle.name)
+    prompt_path.chmod(0o600)
+    try:
+        result = subprocess.run(
+            [
+                str(PRIME_AGENT),
+                "--print",
+                "--no-session",
+                "--no-tools",
+                "--no-extensions",
+                "--no-skills",
+                "--no-prompt-templates",
+                "--no-context-files",
+                "--thinking",
+                "minimal",
+                "--system-prompt",
+                "Draft one concise Booking.com host reply. Return only the reply text.",
+                f"@{prompt_path}",
+            ],
+            cwd=PROJECT_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    finally:
+        prompt_path.unlink(missing_ok=True)
+    reply = result.stdout.strip()
+    if not reply:
+        raise RuntimeError("Prime Agent returned an empty reply draft")
+    if reply.startswith("```") and reply.endswith("```"):
+        reply = "\n".join(reply.splitlines()[1:-1]).strip()
+    return reply
+
+
+async def generate_reply(guest_message: str, guest_name: str) -> str:
+    """Generate a redacted, review-only reply draft with the Prime/DeepSeek harness."""
+    import asyncio
+
+    past_replies = redact_identity_data(load_past_replies())[:12_000]
+    prokat_templates = redact_identity_data(load_prokat_templates())[:12_000]
 
     prompt = REPLY_PROMPT.format(
-        guest_name=guest_name,
-        guest_message=guest_message,
+        guest_name=redact_identity_data(guest_name),
+        guest_message=redact_identity_data(guest_message),
+        prokat_templates=prokat_templates,
         past_replies=past_replies,
     )
 
-    _log("Generating reply from past conversations...")
-
-    client = InferenceClient(
-        model="Qwen/Qwen2.5-7B-Instruct",
-        token=hf_token or None,
-    )
-
-    response = client.chat_completion(
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000,
-    )
-
-    reply = response.choices[0].message.content.strip()
-    return reply
+    _log("Generating review-only reply with Prime/DeepSeek...")
+    return await asyncio.to_thread(_generate_with_prime, prompt)
 
 
 def edit_in_editor(draft: str, guest_message: str = "") -> str:
